@@ -8,7 +8,8 @@ from app import database
 MAX_MEMORY_TURNS = 3
 MAX_TOOL_RESULTS = 5
 MAX_GRAPH_STEPS = 8
-# Keep one shared in-memory checkpoint for conversation continuity across graph instances.
+User_name = "abc"
+User_password = "123"
 _memory: Any = None
 
 
@@ -21,7 +22,6 @@ def _checkpointer() -> Any:
     if _memory is None:
         from langgraph.checkpoint.memory import MemorySaver
 
-        # Use a lightweight in-memory checkpoint so the assistant can remember past messages.
         _memory = MemorySaver()
     return _memory
 
@@ -29,7 +29,6 @@ def _checkpointer() -> Any:
 def build_tools(user: dict[str, object] | None = None) -> list[Any]:
     from langchain_core.tools import tool
 
-    # Public catalog tools are always available; private account tools are attached only for signed-in users.
     @tool
     def search_products(
         query: str,
@@ -130,7 +129,6 @@ def build_shopping_graph(user: dict[str, object] | None = None) -> Any:
     from langgraph.prebuilt import ToolNode, tools_condition
 
     tools = build_tools(user)
-    # Bind the available Shop365 tools so the model can answer with live catalog and account data.
     model = ChatGroq(
         model=os.getenv("GROQ_MODEL", "openai/gpt-oss-20b"),
         temperature=0.2,
@@ -167,7 +165,6 @@ def build_shopping_graph(user: dict[str, object] | None = None) -> Any:
         "The user is authenticated. For account-specific information, use only the "
         "tools scoped to this user's account. Never reveal another user's data."
     )
-    # Keep the model anchored to Shop365-only behavior and enforce account access rules before it answers.
     system_message = SystemMessage(
         content=(
             f"{shop365_scope_policy} "
@@ -187,7 +184,6 @@ def build_shopping_graph(user: dict[str, object] | None = None) -> Any:
             index for index, message in enumerate(messages)
             if isinstance(message, HumanMessage)
         ]
-        # Trim older human turns to keep the conversation within a small memory window and avoid context overflow.
         if len(human_positions) > MAX_MEMORY_TURNS:
             cutoff = human_positions[-MAX_MEMORY_TURNS]
             old_messages = messages[:cutoff]
